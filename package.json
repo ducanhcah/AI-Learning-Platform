@@ -1,0 +1,17 @@
+{
+  "name": "is-casestudy02-integration-system",
+  "version": "1.0.0",
+  "description": "Xây dựng và tích hợp hệ thống trợ lý học tập thông minh ứng dụng AI - SE445 Nhóm 13",
+  "scripts": {
+    "start": "node run-all.js",
+    "start:all": "node run-all.js",
+    "test": "node tests/test-scenarios.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.4",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "http-proxy-middleware": "^2.0.6",
+    "pg": "^8.11.5"
+  }
+}

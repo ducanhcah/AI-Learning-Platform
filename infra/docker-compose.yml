@@ -1,0 +1,192 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cs02-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - cs02-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-caseuser} -d ${POSTGRES_DB:-lms_education}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cs02-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-caseuser}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-casepassword123}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - cs02-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: cs02-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - assessment-process
+      - course-system
+      - progress-system
+      - ai-assistant-system
+      - notification-system
+      - web-client
+    networks:
+      - cs02-net
+
+  course-system:
+    build:
+      context: ../services/course-system
+      dockerfile: Dockerfile
+    container_name: cs02-course-system
+    restart: unless-stopped
+    environment:
+      - PORT=3002
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=course_db
+      - DB_USER=${POSTGRES_USER:-caseuser}
+      - DB_PASS=${POSTGRES_PASSWORD:-casepassword123}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-caseuser}:${RABBITMQ_PASSWORD:-casepassword123}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cs02-net
+
+  assessment-process:
+    build:
+      context: ../services/assessment-process
+      dockerfile: Dockerfile
+    container_name: cs02-assessment-process
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=assessment_db
+      - DB_USER=${POSTGRES_USER:-caseuser}
+      - DB_PASS=${POSTGRES_PASSWORD:-casepassword123}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-caseuser}:${RABBITMQ_PASSWORD:-casepassword123}@rabbitmq:5672
+      - COURSE_SERVICE_URL=http://course-system:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      course-system:
+        condition: service_started
+    networks:
+      - cs02-net
+
+  progress-system:
+    build:
+      context: ../services/progress-system
+      dockerfile: Dockerfile
+    container_name: cs02-progress-system
+    restart: unless-stopped
+    environment:
+      - PORT=3003
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=progress_db
+      - DB_USER=${POSTGRES_USER:-caseuser}
+      - DB_PASS=${POSTGRES_PASSWORD:-casepassword123}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-caseuser}:${RABBITMQ_PASSWORD:-casepassword123}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cs02-net
+
+  ai-assistant-system:
+    build:
+      context: ../services/ai-assistant-system
+      dockerfile: Dockerfile
+    container_name: cs02-ai-system
+    restart: unless-stopped
+    environment:
+      - PORT=3004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=ai_db
+      - DB_USER=${POSTGRES_USER:-caseuser}
+      - DB_PASS=${POSTGRES_PASSWORD:-casepassword123}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-caseuser}:${RABBITMQ_PASSWORD:-casepassword123}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cs02-net
+
+  notification-system:
+    build:
+      context: ../services/notification-system
+      dockerfile: Dockerfile
+    container_name: cs02-notify-system
+    restart: unless-stopped
+    environment:
+      - PORT=3005
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=notify_db
+      - DB_USER=${POSTGRES_USER:-caseuser}
+      - DB_PASS=${POSTGRES_PASSWORD:-casepassword123}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-caseuser}:${RABBITMQ_PASSWORD:-casepassword123}@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cs02-net
+
+  web-client:
+    build:
+      context: ../web-client
+      dockerfile: Dockerfile
+    container_name: cs02-web-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - GATEWAY_URL=http://localhost:8080
+    networks:
+      - cs02-net
+
+volumes:
+  pgdata:
+  rabbitmq_data:
+
+networks:
+  cs02-net:
+    driver: bridge

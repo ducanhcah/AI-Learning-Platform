@@ -1,0 +1,196 @@
+{
+  "info": {
+    "name": "IS-CaseStudy02 - Tích hợp hệ thống Trợ lý học tập AI (Nhóm 13)",
+    "description": "Bộ Postman Collection kiểm thử đầy đủ API Gateway, Course, Assessment, Progress, AI Assistant và Notifications",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health Checks",
+      "item": [
+        {
+          "name": "Gateway Health Check",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/health"
+          }
+        },
+        {
+          "name": "Course Service Health",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/courses/health"
+          }
+        },
+        {
+          "name": "Assessment Service Health",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/submissions/health"
+          }
+        },
+        {
+          "name": "AI Service Health",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/ai/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Course System",
+      "item": [
+        {
+          "name": "Tra cứu thông tin khóa học (COURSE-001)",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/courses/COURSE-001"
+          }
+        },
+        {
+          "name": "Kiểm tra Quota sinh viên (STU-001)",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/courses/COURSE-001/quota/STU-001"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Assessment & Submissions",
+      "item": [
+        {
+          "name": "Lấy đề thi bài kiểm tra (QUIZ-001)",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/quizzes/QUIZ-001"
+          }
+        },
+        {
+          "name": "Nộp bài kiểm tra thành công (202 Accepted)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"STU-001\",\n  \"quizId\": \"QUIZ-001\",\n  \"courseId\": \"COURSE-001\",\n  \"answers\": [\n    {\"questionId\": \"Q-001\", \"answer\": \"A\"},\n    {\"questionId\": \"Q-002\", \"answer\": \"B\"},\n    {\"questionId\": \"Q-003\", \"answer\": \"C\"}\n  ],\n  \"idempotencyKey\": \"client-postman-01\"\n}"
+            },
+            "url": "http://localhost:8080/api/submissions"
+          }
+        },
+        {
+          "name": "Tra cứu trạng thái bài nộp (Status Aggregator)",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/submissions/SUB-10001"
+          }
+        },
+        {
+          "name": "Test Quota hết (409 Conflict)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"STU-003\",\n  \"quizId\": \"QUIZ-001\",\n  \"courseId\": \"COURSE-001\",\n  \"answers\": [\n    {\"questionId\": \"Q-001\", \"answer\": \"A\"}\n  ]\n}"
+            },
+            "url": "http://localhost:8080/api/submissions"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. AI Learning Assistant",
+      "item": [
+        {
+          "name": "Xem đánh giá AI theo submissionId",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/ai/recommendations/SUB-10001"
+          }
+        },
+        {
+          "name": "Hỏi đáp kiến thức với AI Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"STU-001\",\n  \"message\": \"Transactional Outbox Pattern là gì và tại sao cần dùng?\"\n}"
+            },
+            "url": "http://localhost:8080/api/ai/chat"
+          }
+        },
+        {
+          "name": "AI Sinh câu hỏi luyện tập tự động (Practice Generator)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"STU-001\",\n  \"topic\": \"Transactional Outbox Pattern\"\n}"
+            },
+            "url": "http://localhost:8080/api/ai/generate-practice"
+          }
+        },
+        {
+          "name": "AI Ops - Chẩn đoán Log lỗi hệ thống",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"logText\": \"POST /api/submissions HTTP 409 Conflict - ATTEMPTS_EXCEEDED: Sinh viên STU-003 không còn lượt làm bài.\"\n}"
+            },
+            "url": "http://localhost:8080/api/ai/ops/analyze-log"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Progress & Notifications",
+      "item": [
+        {
+          "name": "Xem tiến độ học tập sinh viên",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/progress/STU-001/COURSE-001"
+          }
+        },
+        {
+          "name": "Xem danh sách thông báo",
+          "request": {
+            "method": "GET",
+            "url": "http://localhost:8080/api/notifications/STU-001"
+          }
+        }
+      ]
+    }
+  ]
+}

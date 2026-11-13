@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Trợ Lý Học Tập Thông Minh Ứng Dụng AI - SE445</title>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#EEF2FF',
+                            100: '#E0E7FF',
+                            500: '#6366F1',
+                            600: '#4F46E5',
+                            700: '#4338CA',
+                        },
+                        surface: {
+                            base: '#0B0F19',
+                            card: '#131B2E',
+                            raised: '#1E293B',
+                            border: '#2A364F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0B0F19; color: #F8FAFC; }
+        .glass-card { background-color: #131B2E; border: 1px solid #2A364F; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); }
+        .option-card:hover { border-color: #6366F1; background-color: rgba(99, 102, 241, 0.08); }
+        .option-card.selected { border-color: #6366F1; background-color: rgba(99, 102, 241, 0.15); box-shadow: 0 0 0 1px #6366F1; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.9); } }
+        .anim-dot { animation: pulse-dot 1.8s infinite ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-surface-card/90 border-b border-surface-border backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <!-- Brand Identity -->
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                    <i class="fa-solid fa-graduation-cap text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+                        AI Learning Platform
+                        <span class="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">SE445</span>
+                    </h1>
+                    <p class="text-sm text-slate-300 font-medium">Hệ Thống Trợ Lý Học Tập Thông Minh • Nhóm 13 (Đại Học Duy Tân)</p>
+                </div>
+            </div>
+
+            <!-- Profile & Gateway Status Indicator -->
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 bg-surface-base px-4 py-2.5 rounded-xl border border-surface-border">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 anim-dot" id="gateway-indicator"></span>
+                    <span class="text-sm text-slate-200 font-semibold" id="gateway-status">Gateway: 8080 (Sẵn sàng)</span>
+                </div>
+
+                <div class="flex items-center gap-3 bg-surface-base px-4 py-2.5 rounded-xl border border-surface-border">
+                    <i class="fa-solid fa-user-circle text-indigo-400 text-lg"></i>
+                    <select id="student-select" class="bg-transparent text-sm text-white font-semibold outline-none cursor-pointer pr-2">
+                        <option value="STU-001" class="bg-surface-card text-white">STU-001: Trần Văn Lộc (Còn 3 lượt)</option>
+                        <option value="STU-002" class="bg-surface-card text-white">STU-002: Tống Minh Khuê (Còn 1 lượt)</option>
+                        <option value="STU-003" class="bg-surface-card text-white">STU-003: Trần Lê Phúc Hào (Hết lượt - 0)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs (Chuẩn Awesome Design - Tabs Lớn Rõ Ràng) -->
+    <nav class="max-w-7xl mx-auto w-full px-6 pt-6">
+        <div class="flex border-b border-surface-border gap-3 overflow-x-auto pb-px">
+            <button onclick="switchTab('quiz')" id="tab-btn-quiz" class="tab-btn px-5 py-3.5 font-bold text-base border-b-2 border-indigo-500 text-indigo-400 flex items-center gap-2.5 transition">
+                <i class="fa-solid fa-file-signature text-lg"></i> Bài Kiểm Tra & Nộp Bài
+            </button>
+            <button onclick="switchTab('ai')" id="tab-btn-ai" class="tab-btn px-5 py-3.5 font-bold text-base border-b-2 border-transparent text-slate-300 hover:text-white flex items-center gap-2.5 transition">
+                <i class="fa-solid fa-brain text-lg"></i> Trợ Lý AI & Năng Lực
+            </button>
+            <button onclick="switchTab('progress')" id="tab-btn-progress" class="tab-btn px-5 py-3.5 font-bold text-base border-b-2 border-transparent text-slate-300 hover:text-white flex items-center gap-2.5 transition">
+                <i class="fa-solid fa-chart-pie text-lg"></i> Tiến Độ & Thông Báo
+            </button>
+            <button onclick="switchTab('ops')" id="tab-btn-ops" class="tab-btn px-5 py-3.5 font-bold text-base border-b-2 border-transparent text-slate-300 hover:text-white flex items-center gap-2.5 transition">
+                <i class="fa-solid fa-stethoscope text-lg"></i> AI Ops & Chẩn Đoán Log
+            </button>
+            <button onclick="switchTab('tests')" id="tab-btn-tests" class="tab-btn px-5 py-3.5 font-bold text-base border-b-2 border-transparent text-slate-300 hover:text-white flex items-center gap-2.5 transition">
+                <i class="fa-solid fa-vial-circle-check text-lg"></i> Kiểm Thử 10 Test Cases
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto w-full px-6 py-8 flex-1 space-y-8">
+
+        <!-- ==================== TAB 1: BÀI KIỂM TRA ==================== -->
+        <section id="tab-quiz" class="space-y-8">
+            <!-- Course Header Card -->
+            <div class="glass-card rounded-3xl p-8 grid md:grid-cols-3 gap-8 items-center">
+                <div class="md:col-span-2 space-y-3">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 text-sm font-bold border border-indigo-500/30">
+                        <i class="fa-solid fa-bookmark"></i> Mã Khóa Học: COURSE-001
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-extrabold text-white tracking-tight" id="course-title">Kiến trúc phần mềm và Tích hợp hệ thống</h2>
+                    <p class="text-slate-300 text-base leading-relaxed" id="course-desc">
+                        Nền tảng tích hợp hiện đại với API-led connectivity, mô hình hướng sự kiện (EDA), RabbitMQ Topic Exchange và Transactional Outbox Pattern.
+                    </p>
+                </div>
+                <div class="bg-surface-base p-6 rounded-2xl border border-surface-border flex flex-col justify-between">
+                    <div>
+                        <span class="text-sm font-semibold text-slate-300">Lượt làm bài khả dụng (Quota):</span>
+                        <div class="text-3xl font-black mt-2 text-emerald-400 flex items-center gap-3" id="quota-display">
+                            <i class="fa-solid fa-ticket"></i> <span id="quota-count">3</span> / 3 lượt thi
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-surface-border text-xs text-slate-300 font-medium">
+                        <i class="fa-solid fa-shield-halved text-indigo-400"></i> Cơ chế trừ Quota nguyên tử chống Race Condition.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Questions Form Card -->
+            <div class="glass-card rounded-3xl p-8 space-y-8">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-border pb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-white tracking-tight" id="quiz-title">QUIZ-001: Đề Thi Trắc Nghiệm Kiến Trúc Tích Hợp & RabbitMQ</h3>
+                        <p class="text-sm text-slate-300 mt-1">Hình thức: Trắc nghiệm khách quan • Điểm đạt tiêu chuẩn: 5.0 / 10.0</p>
+                    </div>
+                    <span class="px-4 py-1.5 bg-purple-500/20 text-purple-300 text-sm rounded-full font-bold border border-purple-500/30">
+                        3 Câu hỏi cốt lõi
+                    </span>
+                </div>
+
+                <!-- Container câu hỏi -->
+                <div id="quiz-questions-container" class="space-y-8">
+                    <!-- Dynamic Questions -->
+                </div>
+
+                <!-- Submit Action Area -->
+                <div class="pt-6 border-t border-surface-border flex flex-wrap items-center justify-between gap-6">
+                    <div class="text-sm text-slate-300">
+                        <span class="text-amber-400 font-bold"><i class="fa-solid fa-bolt"></i> Quy trình bất đồng bộ:</span>
+                        Client nhận phản hồi <b>HTTP 202 Accepted</b> ngay lập tức, các Consumer xử lý nền song song.
+                    </div>
+                    <button onclick="submitQuiz()" id="btn-submit-quiz" class="px-8 py-4 bg-gradient-to-r from-indigo-500 via-indigo-600 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-base font-bold rounded-2xl shadow-xl shadow-indigo-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-3 cursor-pointer">
+                        <i class="fa-solid fa-paper-plane text-lg"></i> Nộp Bài Kiểm Tra
+                    </button>
+                </div>
+
+                <!-- Live Asynchronous Submission Processing Tracker -->
+                <div id="submission-tracker" class="hidden bg-surface-base border-2 border-indigo-500/40 rounded-2xl p-6 space-y-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <h4 class="text-base font-bold text-indigo-300 flex items-center gap-3">
+                            <i class="fa-solid fa-spinner fa-spin text-lg" id="tracker-spinner"></i>
+                            Tiến Trình Xử Lý Bài Nộp (<span id="tracker-sub-id" class="font-mono text-white">SUB-XXXXXX</span>)
+                        </h4>
+                        <span class="px-3.5 py-1 rounded-lg text-xs font-extrabold tracking-wide" id="tracker-overall-badge">PROCESSING</span>
+                    </div>
+
+                    <!-- Steps Timeline Cards -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div class="bg-surface-card p-4 rounded-xl border border-surface-border" id="step-course">
+                            <div class="font-bold text-white flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-circle-check text-emerald-400"></i> Course Quota
+                            </div>
+                            <span class="text-xs text-slate-300 font-medium" id="step-course-status">Đã trừ lượt thành công</span>
+                        </div>
+                        <div class="bg-surface-card p-4 rounded-xl border border-surface-border" id="step-progress">
+                            <div class="font-bold text-white flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-clock text-amber-400" id="step-progress-icon"></i> Learning Progress
+                            </div>
+                            <span class="text-xs text-slate-300 font-medium" id="step-progress-status">Đang cập nhật tiến độ...</span>
+                        </div>
+                        <div class="bg-surface-card p-4 rounded-xl border border-surface-border" id="step-ai">
+                            <div class="font-bold text-white flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-clock text-amber-400" id="step-ai-icon"></i> AI Cognitive Engine
+                            </div>
+                            <span class="text-xs text-slate-300 font-medium" id="step-ai-status">Đang phân tích năng lực...</span>
+                        </div>
+                        <div class="bg-surface-card p-4 rounded-xl border border-surface-border" id="step-notify">
+                            <div class="font-bold text-white flex items-center gap-2 mb-1">
+                                <i class="fa-solid fa-clock text-amber-400" id="step-notify-icon"></i> Notification
+                            </div>
+                            <span class="text-xs text-slate-300 font-medium" id="step-notify-status">Đang gửi thông báo...</span>
+                        </div>
+                    </div>
+
+                    <div id="tracker-score-box" class="hidden p-6 bg-emerald-950/40 border border-emerald-500/40 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <span class="text-sm font-semibold text-emerald-300">Điểm số bài thi được máy chủ xác thực:</span>
+                            <div class="text-3xl font-black text-emerald-400 mt-1" id="tracker-score-val">10.0 / 10.0 Điểm</div>
+                        </div>
+                        <button onclick="switchTab('ai')" class="text-sm px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-2.5 transition shadow-lg shadow-emerald-600/30">
+                            Xem AI Đánh Giá & Lộ Trình <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== TAB 2: TRỢ LÝ AI ==================== -->
+        <section id="tab-ai" class="hidden space-y-8">
+            <div class="grid lg:grid-cols-3 gap-8">
+                <!-- Left 2 Cols: Evaluation & Competency Matrix -->
+                <div class="lg:col-span-2 space-y-8">
+                    <!-- Cognitive Evaluation Card -->
+                    <div class="glass-card rounded-3xl p-8 space-y-6">
+                        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-border pb-6">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl border border-purple-500/30">
+                                    <i class="fa-solid fa-brain"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white">Đánh Giá Năng Lực Đa Chiều (AI Cognitive Engine)</h3>
+                                    <p class="text-sm text-slate-300">Phân tích chuẩn hóa dựa trên các mẫu thiết kế hệ thống phân tán</p>
+                                </div>
+                            </div>
+                            <span id="ai-eval-badge" class="px-4 py-1.5 bg-surface-base text-slate-200 text-sm rounded-xl font-bold border border-surface-border">
+                                Chưa có dữ liệu nộp bài
+                            </span>
+                        </div>
+
+                        <!-- Summary & Strengths/Weaknesses -->
+                        <div id="ai-evaluation-content" class="text-base text-slate-200 space-y-6">
+                            <p class="text-slate-300 italic text-base">Vui lòng nộp bài kiểm tra ở Tab 1 để AI tiến hành phân tích chi tiết kết quả và ma trận năng lực.</p>
+                        </div>
+
+                        <!-- Skill Competency Matrix (Thanh đo năng lực lớn rõ) -->
+                        <div id="ai-skill-matrix-container" class="space-y-4 pt-2"></div>
+                    </div>
+
+                    <!-- Adaptive Roadmap & Practice Generator -->
+                    <div class="glass-card rounded-3xl p-8 space-y-6">
+                        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-border pb-6">
+                            <div>
+                                <h4 class="text-lg font-bold text-white flex items-center gap-2.5">
+                                    <i class="fa-solid fa-route text-indigo-400"></i> Lộ Trình Thích Ứng Cá Nhân Hóa (Adaptive Roadmap)
+                                </h4>
+                                <p class="text-sm text-slate-300 mt-0.5">Kế hoạch cải thiện năng lực tự động tối ưu theo từng câu làm sai</p>
+                            </div>
+                            <button onclick="generateAIPractice()" id="btn-generate-practice" class="px-5 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-purple-600/30 transition">
+                                <i class="fa-solid fa-wand-magic-sparkles text-base"></i> AI Sinh Câu Hỏi Luyện Tập
+                            </button>
+                        </div>
+
+                        <div id="ai-study-plan-container" class="space-y-4 text-sm text-slate-200">
+                            <p class="text-slate-300 italic text-base">Lộ trình sẽ tự động cá nhân hóa sau khi hoàn thành bài thi.</p>
+                        </div>
+
+                        <!-- Practice Questions Container -->
+                        <div id="ai-practice-box" class="hidden pt-6 border-t border-surface-border space-y-4">
+                            <h5 class="text-sm font-bold text-purple-300 flex items-center gap-2">
+                                <i class="fa-solid fa-bullseye text-base"></i> Bài Tập Củng Cố Lỗ Hổng Kiến Thức Được AI Sinh Tự Động:
+                            </h5>
+                            <div id="ai-practice-questions" class="space-y-4 text-sm"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right 1 Col: Interactive Cognitive Chatbot -->
+                <div class="glass-card rounded-3xl p-6 flex flex-col h-[750px]">
+                    <div class="flex items-center justify-between pb-4 border-b border-surface-border">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-base font-bold text-white">Trợ Lý AI Chuyên Sâu</h4>
+                                <span class="text-xs text-indigo-400 font-semibold">Tích Hợp Hệ Thống SE445</span>
+                            </div>
+                        </div>
+                        <span class="text-xs px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 font-mono font-bold">Online</span>
+                    </div>
+
+                    <!-- Quick Prompt Pills -->
+                    <div class="py-3 flex flex-wrap gap-2 border-b border-surface-border text-xs">
+                        <button onclick="askQuickPrompt('Transactional Outbox Pattern là gì và giải quyết bài toán gì?')" class="bg-surface-base hover:bg-surface-raised text-indigo-300 px-3 py-1.5 rounded-lg border border-surface-border transition font-medium">
+                            Outbox Pattern?
+                        </button>
+                        <button onclick="askQuickPrompt('Tại sao Consumer cần có tính chất Idempotent trong RabbitMQ?')" class="bg-surface-base hover:bg-surface-raised text-indigo-300 px-3 py-1.5 rounded-lg border border-surface-border transition font-medium">
+                            Idempotency?
+                        </button>
+                        <button onclick="askQuickPrompt('Cơ chế Dead Letter Queue (DLQ) trong RabbitMQ hoạt động như thế nào?')" class="bg-surface-base hover:bg-surface-raised text-indigo-300 px-3 py-1.5 rounded-lg border border-surface-border transition font-medium">
+                            RabbitMQ & DLQ?
+                        </button>
+                        <button onclick="askQuickPrompt('Làm sao để chống Race Condition khi trừ Quota làm bài?')" class="bg-surface-base hover:bg-surface-raised text-indigo-300 px-3 py-1.5 rounded-lg border border-surface-border transition font-medium">
+                            Atomic Quota?
+                        </button>
+                    </div>
+
+                    <!-- Chat Messages List -->
+                    <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-4 text-sm pr-2">
+                        <div class="bg-surface-base p-4 rounded-2xl border border-surface-border text-slate-200">
+                            <p class="font-bold text-indigo-400 text-sm mb-1">Trợ Lý Học Tập AI:</p>
+                            Chào bạn! Tôi là Trợ lý AI chuyên trách môn <b>Kiến trúc phần mềm & Tích hợp hệ thống</b>. Hãy chọn câu hỏi gợi ý phía trên hoặc hỏi tôi bất kỳ thắc mắc nào về RabbitMQ, Outbox Pattern hay EDA!
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Form -->
+                    <form onsubmit="sendChatMessage(event)" class="pt-4 border-t border-surface-border flex gap-3">
+                        <input id="chat-input" type="text" placeholder="Nhập thắc mắc cần AI giải đáp..." class="flex-1 bg-surface-base border border-surface-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 placeholder-slate-300">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-3 rounded-xl text-sm font-bold flex items-center justify-center transition shadow-lg shadow-indigo-600/30">
+                            <i class="fa-solid fa-arrow-up text-base"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== TAB 3: TIẾN ĐỘ & THÔNG BÁO ==================== -->
+        <section id="tab-progress" class="hidden space-y-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- Learning Progress Card -->
+                <div class="glass-card rounded-3xl p-8 space-y-6">
+                    <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                        <i class="fa-solid fa-chart-pie text-emerald-400"></i> Tiến Độ Khóa Học (Learning Progress)
+                    </h3>
+                    <div class="p-6 bg-surface-base rounded-2xl border border-surface-border space-y-4">
+                        <div class="flex justify-between text-sm font-semibold text-slate-200">
+                            <span>Tỷ lệ hoàn thành môn học:</span>
+                            <span class="font-extrabold text-emerald-400 text-lg" id="progress-rate-text">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-4 overflow-hidden p-0.5 border border-slate-700">
+                            <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-700" id="progress-bar-fill" style="width: 0%"></div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 pt-3 text-sm">
+                            <div class="bg-surface-card p-4 rounded-xl border border-surface-border">
+                                <span class="text-slate-300 font-medium text-xs">Số bài đã nộp thành công:</span>
+                                <div class="text-2xl font-black text-white mt-1" id="progress-completed-count">0</div>
+                            </div>
+                            <div class="bg-surface-card p-4 rounded-xl border border-surface-border">
+                                <span class="text-slate-300 font-medium text-xs">Điểm trung bình (GPA):</span>
+                                <div class="text-2xl font-black text-white mt-1" id="progress-avg-score">0.0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notifications Feed Card -->
+                <div class="glass-card rounded-3xl p-8 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                            <i class="fa-solid fa-bell text-amber-400"></i> Hộp Thư Thông Báo (Notifications)
+                        </h3>
+                        <button onclick="loadNotifications()" class="text-sm font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-rotate-right"></i> Làm mới
+                        </button>
+                    </div>
+
+                    <div id="notifications-list" class="space-y-4 max-h-[420px] overflow-y-auto pr-2">
+                        <p class="text-sm text-slate-300 italic">Chưa có thông báo nào được ghi nhận.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== TAB 4: AI OPS & LOG ANALYZER ==================== -->
+        <section id="tab-ops" class="hidden space-y-8">
+            <div class="glass-card rounded-3xl p-8 space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-border pb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-white flex items-center gap-3">
+                            <i class="fa-solid fa-stethoscope text-emerald-400"></i> AI Developer & Ops Log Diagnosis (Mục 10.2)
+                        </h3>
+                        <p class="text-sm text-slate-300 mt-1">Chẩn đoán nguyên nhân gốc (Root Cause) và hướng khắc phục sự cố hệ thống phân tán</p>
+                    </div>
+                    <span class="text-xs px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-lg font-mono font-bold border border-emerald-500/30">
+                        DevOps Assistant
+                    </span>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-8">
+                    <div class="space-y-4">
+                        <label class="block text-sm font-bold text-slate-200">Dán log lỗi hoặc chọn mẫu sự cố thực tế:</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="setSampleLog('ATTEMPTS_EXCEEDED')" class="text-xs font-semibold px-3 py-1.5 bg-surface-base border border-surface-border rounded-lg hover:bg-surface-raised text-slate-200 transition">
+                                Mẫu: Quota 409
+                            </button>
+                            <button onclick="setSampleLog('BAD_GATEWAY')" class="text-xs font-semibold px-3 py-1.5 bg-surface-base border border-surface-border rounded-lg hover:bg-surface-raised text-slate-200 transition">
+                                Mẫu: Gateway 502
+                            </button>
+                            <button onclick="setSampleLog('IDEMPOTENT_DUPLICATE')" class="text-xs font-semibold px-3 py-1.5 bg-surface-base border border-surface-border rounded-lg hover:bg-surface-raised text-slate-200 transition">
+                                Mẫu: Trùng Lặp Event
+                            </button>
+                        </div>
+                        <textarea id="log-input-area" rows="7" class="w-full bg-surface-base border border-surface-border rounded-2xl p-4 text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500 placeholder-slate-300" placeholder="Paste server logs or exception traces here..."></textarea>
+                        <button onclick="analyzeLogWithAI()" id="btn-analyze-log" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl text-sm flex items-center justify-center gap-2.5 transition shadow-lg shadow-emerald-600/30">
+                            <i class="fa-solid fa-microchip text-base"></i> AI Phân Tích & Chẩn Đoán Lỗi
+                        </button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <label class="block text-sm font-bold text-slate-200">Báo cáo chẩn đoán kỹ thuật từ AI:</label>
+                        <div id="log-diagnosis-result" class="h-[280px] overflow-y-auto bg-surface-base border border-surface-border rounded-2xl p-5 text-sm text-slate-200 space-y-3">
+                            <p class="text-slate-300 italic text-sm">Dán log và nhấn nút phân tích để nhận báo cáo kỹ thuật từ AI.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== TAB 5: TEST CASES ==================== -->
+        <section id="tab-tests" class="hidden space-y-8">
+            <div class="glass-card rounded-3xl p-8 space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-surface-border pb-6">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Bộ Kiểm Thử Tự Động (10 Test Cases TC01 - TC10)</h3>
+                        <p class="text-sm text-slate-300 mt-1">Kiểm thử toàn diện các điều kiện biên, kiểm soát quota đồng thời, idempotency, retry và failure</p>
+                    </div>
+                    <button onclick="runAllTestCases()" id="btn-run-all-tests" class="px-6 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl text-sm flex items-center gap-2.5 shadow-xl shadow-indigo-600/30 transition">
+                        <i class="fa-solid fa-play text-base"></i> Chạy Toàn Bộ 10 Test Cases
+                    </button>
+                </div>
+
+                <!-- Test Cases Table -->
+                <div class="overflow-x-auto rounded-2xl border border-surface-border">
+                    <table class="w-full text-left text-sm text-slate-200">
+                        <thead class="bg-surface-base text-slate-300 font-bold border-b border-surface-border">
+                            <tr>
+                                <th class="p-4 w-20">ID</th>
+                                <th class="p-4">Điều Kiện Kiểm Thử</th>
+                                <th class="p-4">Kết Quả Kỳ Vọng</th>
+                                <th class="p-4">Kết Quả Thực Tế</th>
+                                <th class="p-4 w-32 text-center">Trạng Thái</th>
+                                <th class="p-4 w-24 text-center">Chạy</th>
+                            </tr>
+                        </thead>
+                        <tbody id="test-cases-table-body" class="divide-y divide-surface-border bg-surface-card font-mono text-xs">
+                            <!-- Dynamic TC01-TC10 Rows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Console Logs Area -->
+                <div class="bg-surface-base p-5 rounded-2xl border border-surface-border text-xs font-mono text-slate-300 max-h-60 overflow-y-auto space-y-1.5" id="test-console-logs">
+                    <div class="text-indigo-400 font-bold">> Sẵn sàng chạy kiểm thử tự động. Nhấn "Chạy Toàn Bộ 10 Test Cases" để bắt đầu...</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-surface-card border-t border-surface-border px-6 py-6 text-center text-sm text-slate-300">
+        Đồ án Tích hợp hệ thống - Case Study 02 • Giảng viên hướng dẫn: ThS. Nguyễn Minh Nhật • Nhóm 13 (2026)
+    </footer>
+
+    <!-- App Script -->
+    <script src="app.js"></script>
+</body>
+</html>
