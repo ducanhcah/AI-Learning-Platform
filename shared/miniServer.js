@@ -82,43 +82,47 @@ class MiniServer {
         };
     }
 
+    async handle(req, res) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID, Idempotency-Key');
+
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
+
+        let bodyData = '';
+        for await (const chunk of req) {
+            bodyData += chunk;
+        }
+        let body = {};
+        if (bodyData) {
+            try { body = JSON.parse(bodyData); } catch (e) { body = bodyData; }
+        }
+
+        const result = await this.dispatch(req.method, req.url, body, req.headers);
+        res.writeHead(result.status, result.headers);
+        res.end(typeof result.data === 'object' ? JSON.stringify(result.data) : (result.data || ''));
+    }
+
     listen(callback) {
-        this.server = http.createServer(async (req, res) => {
-            res.setHeader('Access-Control-Allow-Origin', '*');
-            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-            res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID, Idempotency-Key');
-
-            if (req.method === 'OPTIONS') {
-                res.writeHead(204);
-                res.end();
-                return;
-            }
-
-            let bodyData = '';
-            for await (const chunk of req) {
-                bodyData += chunk;
-            }
-            let body = {};
-            if (bodyData) {
-                try { body = JSON.parse(bodyData); } catch (e) { body = bodyData; }
-            }
-
-            const result = await this.dispatch(req.method, req.url, body, req.headers);
-            res.writeHead(result.status, result.headers);
-            res.end(typeof result.data === 'object' ? JSON.stringify(result.data) : (result.data || ''));
-        });
+        this.server = http.createServer((req, res) => this.handle(req, res));
 
         this.server.on('error', (err) => {
             console.warn(`[${this.serviceName}] Socket listen warning:`, err.message);
         });
 
-        try {
-            this.server.listen(this.port, () => {
-                console.log(`[${this.serviceName}] Đang chạy trên cổng ${this.port}`);
-                if (callback) callback();
-            });
-        } catch (e) {
-            console.warn(`[${this.serviceName}] Socket listen exception:`, e.message);
+        if (!process.env.VERCEL) {
+            try {
+                this.server.listen(this.port, () => {
+                    console.log(`[${this.serviceName}] Đang chạy trên cổng ${this.port}`);
+                    if (callback) callback();
+                });
+            } catch (e) {
+                console.warn(`[${this.serviceName}] Socket listen exception:`, e.message);
+            }
         }
 
         return this.server;

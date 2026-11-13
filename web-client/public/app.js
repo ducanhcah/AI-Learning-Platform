@@ -1,7 +1,5 @@
 // Configuration
-const API_BASE = window.location.port === '8080' || window.location.port === '3000'
-    ? '/api'
-    : 'http://localhost:8080/api';
+const API_BASE = '/api';
 
 let currentStudentId = 'STU-001';
 const currentCourseId = 'COURSE-001';

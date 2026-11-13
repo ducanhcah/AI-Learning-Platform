@@ -1,5 +1,18 @@
 const EventEmitter = require('events');
 
+// Danh mục sự kiện chuẩn hóa kế thừa từ Case Study 1 (Mục 1.2.2)
+const EVENT_CATALOG = {
+    STUDENT_REGISTERED: 'student.registered',
+    COURSE_ENROLLED: 'course.enrolled',
+    LESSON_COMPLETED: 'lesson.completed',
+    QUIZ_COMPLETED: 'quiz.completed',
+    ASSESSMENT_SUBMITTED: 'assessment.submitted',
+    PROGRESS_UPDATED: 'learning.progress.updated',
+    BEHAVIOR_DETECTED: 'learning.behavior.detected',
+    AI_RECOMMENDATION_CREATED: 'ai.recommendation.created',
+    PLAN_UPDATED: 'learning.plan.updated'
+};
+
 class HybridEventBus {
     constructor() {
         this.localEmitter = new EventEmitter();
@@ -9,6 +22,7 @@ class HybridEventBus {
         this.initPromise = null;
         this.subscribers = new Map();
         this.dlqMessages = [];
+        this.eventHistory = []; // Lưu trữ Live Event Stream để hiển thị trên Dashboard
         this.rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://caseuser:casepassword123@localhost:5672';
     }
 
@@ -33,7 +47,6 @@ class HybridEventBus {
                 console.log('[EventBus] Đã kết nối RabbitMQ thành công: ' + this.rabbitmqUrl);
             } catch (err) {
                 this.isAmqpReady = false;
-                // In-memory fallback
             }
         })();
 
@@ -41,6 +54,15 @@ class HybridEventBus {
     }
 
     async publishEvent(exchange, routingKey, payload) {
+        // Ghi lại vào Live Event Stream
+        this.eventHistory.unshift({
+            routingKey,
+            eventId: payload.eventId || `evt-${Date.now()}`,
+            occurredAt: payload.occurredAt || new Date().toISOString(),
+            payload
+        });
+        if (this.eventHistory.length > 50) this.eventHistory.pop();
+
         if (this.isAmqpReady && this.amqpChannel) {
             try {
                 const messageBuffer = Buffer.from(JSON.stringify(payload));
@@ -76,7 +98,7 @@ class HybridEventBus {
         }
         this.subscribers.get(queueName).push(handler);
 
-        // Đăng ký local listener NGAY LẬP TỨC để không bị trễ
+        // Đăng ký local listener ngay lập tức
         this.localEmitter.on(routingKey, async (payload) => {
             try {
                 await handler(payload);
@@ -119,7 +141,12 @@ class HybridEventBus {
     getDLQ() {
         return this.dlqMessages;
     }
+
+    getEventHistory() {
+        return this.eventHistory;
+    }
 }
 
 const instance = new HybridEventBus();
+instance.EVENT_CATALOG = EVENT_CATALOG;
 module.exports = instance;

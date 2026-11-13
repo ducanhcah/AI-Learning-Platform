@@ -366,12 +366,43 @@ async function startConsumer() {
         dbManager.memoryStore.ai_evaluations[submissionId] = evaluation;
         console.log(`[AIAssistant Consumer] Đã sinh đánh giá AI Năng lực Đa chiều cho submission ${submissionId}`);
 
+        // Phát các sự kiện EDA theo Case Study 1 (Mục 1.2.2)
+        eventBus.publishEvent('lms.events', eventBus.EVENT_CATALOG.BEHAVIOR_DETECTED, {
+            eventId: `evt-behav-${Date.now()}`,
+            eventType: eventBus.EVENT_CATALOG.BEHAVIOR_DETECTED,
+            studentId,
+            submissionId,
+            score,
+            identifiedGaps: topicsToReview,
+            occurredAt: new Date().toISOString()
+        });
+
+        eventBus.publishEvent('lms.events', eventBus.EVENT_CATALOG.AI_RECOMMENDATION_CREATED, {
+            eventId: `evt-recom-${Date.now()}`,
+            eventType: eventBus.EVENT_CATALOG.AI_RECOMMENDATION_CREATED,
+            studentId,
+            submissionId,
+            recommendations: evaluation.recommendations,
+            occurredAt: new Date().toISOString()
+        });
+
+        eventBus.publishEvent('lms.events', eventBus.EVENT_CATALOG.PLAN_UPDATED, {
+            eventId: `evt-plan-${Date.now()}`,
+            eventType: eventBus.EVENT_CATALOG.PLAN_UPDATED,
+            studentId,
+            submissionId,
+            studyPlan: evaluation.studyPlan,
+            occurredAt: new Date().toISOString()
+        });
+
         eventBus.localEmitter.emit('component.ai.done', { submissionId });
         return true;
     });
 }
 
-startConsumer().catch(err => console.error('[AIAssistant Consumer Error]', err));
+if (!process.env.VERCEL) {
+    startConsumer().catch(err => console.error('[AIAssistant Consumer Error]', err));
+}
 const server = app.listen();
 
-module.exports = { app, server };
+module.exports = Object.assign(app.handle.bind(app), { app, server, startConsumer });

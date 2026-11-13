@@ -48,7 +48,9 @@ async function startConsumer() {
     });
 }
 
-startConsumer().catch(err => console.error('[Notify Consumer Error]', err));
+if (!process.env.VERCEL) {
+    startConsumer().catch(err => console.error('[Notify Consumer Error]', err));
+}
 const server = app.listen();
 
-module.exports = { app, server };
+module.exports = Object.assign(app.handle.bind(app), { app, server, startConsumer });

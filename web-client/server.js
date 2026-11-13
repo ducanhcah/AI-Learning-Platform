@@ -16,7 +16,7 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml'
 };
 
-const server = http.createServer((req, res) => {
+function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     const parsed = url.parse(req.url);
     let filePath = path.join(publicDir, parsed.pathname === '/' ? 'index.html' : parsed.pathname);
@@ -30,10 +30,14 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         fs.createReadStream(indexPath).pipe(res);
     }
-});
+}
 
-server.listen(PORT, () => {
-    console.log(`[WebClient] Chạy trên cổng http://localhost:${PORT}`);
-});
+let server;
+if (!process.env.VERCEL) {
+    server = http.createServer(handler);
+    server.listen(PORT, () => {
+        console.log(`[WebClient] Chạy trên cổng http://localhost:${PORT}`);
+    });
+}
 
-module.exports = { server };
+module.exports = handler;

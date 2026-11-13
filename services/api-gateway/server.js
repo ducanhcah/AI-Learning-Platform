@@ -1,16 +1,23 @@
 const http = require('http');
+const https = require('https');
 const url = require('url');
 const fs = require('fs');
 const path = require('path');
+const eventBus = require('../../shared/eventBus');
+const { AI_RATE_LIMIT_MAX, checkAiRateLimit } = require('./rateLimit');
 
 const PORT = parseInt(process.env.GATEWAY_PORT || '8080', 10);
 
+function getServiceUrl(envName, localPort) {
+    return process.env[envName] || `http://localhost:${localPort}`;
+}
+
 const UPSTREAMS = {
-    course: { host: 'localhost', port: parseInt(process.env.COURSE_PORT || '3002', 10) },
-    assessment: { host: 'localhost', port: parseInt(process.env.ASSESSMENT_PORT || '3001', 10) },
-    progress: { host: 'localhost', port: parseInt(process.env.PROGRESS_PORT || '3003', 10) },
-    ai: { host: 'localhost', port: parseInt(process.env.AI_PORT || '3004', 10) },
-    notify: { host: 'localhost', port: parseInt(process.env.NOTIFY_PORT || '3005', 10) }
+    course: { baseUrl: getServiceUrl('COURSE_SYSTEM_URL', process.env.COURSE_PORT || '3002') },
+    assessment: { baseUrl: getServiceUrl('ASSESSMENT_PROCESS_URL', process.env.ASSESSMENT_PORT || '3001') },
+    progress: { baseUrl: getServiceUrl('PROGRESS_SYSTEM_URL', process.env.PROGRESS_PORT || '3003') },
+    ai: { baseUrl: getServiceUrl('AI_ASSISTANT_SYSTEM_URL', process.env.AI_PORT || '3004') },
+    notify: { baseUrl: getServiceUrl('NOTIFICATION_SYSTEM_URL', process.env.NOTIFY_PORT || '3005') }
 };
 
 const MIME_TYPES = {
@@ -23,25 +30,27 @@ const MIME_TYPES = {
     '.svg': 'image/svg+xml'
 };
 
-function forwardRequest(target, targetPath, req, res, bodyBuffer) {
+function forwardRequest(target, targetPath, req, res, bodyBuffer, extraHeaders = {}) {
+    const targetUrl = new URL(targetPath, target.baseUrl);
+    const requester = targetUrl.protocol === 'https:' ? https : http;
     const options = {
-        hostname: target.host,
-        port: target.port,
-        path: targetPath,
         method: req.method,
         headers: {
             ...req.headers,
-            host: `${target.host}:${target.port}`
+            ...extraHeaders,
+            host: targetUrl.host
         }
     };
 
-    const proxyReq = http.request(options, (proxyRes) => {
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    const proxyReq = requester.request(targetUrl, options, (proxyRes) => {
+        // Sao chép headers
+        const headers = { ...proxyRes.headers, ...extraHeaders };
+        res.writeHead(proxyRes.statusCode, headers);
         proxyRes.pipe(res);
     });
 
     proxyReq.on('error', (err) => {
-        console.error(`[API Gateway] Forwarding error to ${target.host}:${target.port}:`, err.message);
+        console.error(`[API Gateway] Forwarding error to ${targetUrl.origin}:`, err.message);
         res.writeHead(502, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { code: 'BAD_GATEWAY', message: `Không thể kết nối đến upstream service: ${err.message}` } }));
     });
@@ -52,7 +61,37 @@ function forwardRequest(target, targetPath, req, res, bodyBuffer) {
     proxyReq.end();
 }
 
-const server = http.createServer(async (req, res) => {
+function requestJson(target, targetPath) {
+    return new Promise((resolve, reject) => {
+        const targetUrl = new URL(targetPath, target.baseUrl);
+        const requester = targetUrl.protocol === 'https:' ? https : http;
+        const request = requester.get(targetUrl, {
+            headers: { Accept: 'application/json' }
+        }, (response) => {
+            const chunks = [];
+            response.on('data', chunk => chunks.push(chunk));
+            response.on('end', () => {
+                const body = Buffer.concat(chunks).toString();
+                if (response.statusCode < 200 || response.statusCode >= 300) {
+                    const error = new Error(`Upstream returned HTTP ${response.statusCode}`);
+                    error.statusCode = response.statusCode;
+                    reject(error);
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(body));
+                } catch (error) {
+                    reject(new Error(`Upstream returned invalid JSON: ${error.message}`));
+                }
+            });
+        });
+
+        request.setTimeout(3000, () => request.destroy(new Error('Upstream request timed out')));
+        request.on('error', reject);
+    });
+}
+
+async function handler(req, res) {
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -76,19 +115,122 @@ const server = http.createServer(async (req, res) => {
         chunks.push(chunk);
     }
     const bodyBuffer = Buffer.concat(chunks);
+    let parsedBody;
+    if (bodyBuffer.length > 0) {
+        try {
+            parsedBody = JSON.parse(bodyBuffer.toString());
+        } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { code: 'INVALID_JSON', message: 'Request body must be valid JSON.' } }));
+            return;
+        }
+    } else {
+        parsedBody = {};
+    }
 
-    // Health check tổng thể Gateway
+    // 1. Health check tổng thể Gateway
     if (pathname === '/api/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
             gateway: 'UP',
+            architecture: 'API-led Connectivity + Event-Driven Architecture (Case Study 1 & 2)',
             timestamp: new Date().toISOString(),
             upstreams: UPSTREAMS
         }));
         return;
     }
 
-    // Định tuyến API theo mục 6.4
+    // 2. Tra cứu Live Event Stream (Mục 1.2.2 Case Study 1)
+    if (pathname === '/api/events') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            events: eventBus.getEventHistory(),
+            catalog: eventBus.EVENT_CATALOG
+        }));
+        return;
+    }
+
+    // 3. Process API: Learning Analysis Process API (Mục 1.2 Case Study 1)
+    // Phối hợp: Learning Progress API + Assessment API + Course API -> Tổng hợp ngữ cảnh cho AI
+    const learningAnalysisMatch = pathname.match(/^\/api\/process\/learning-analysis\/([^/]+)\/([^/]+)$/);
+    if (pathname.startsWith('/api/process/learning-analysis')) {
+        if (!learningAnalysisMatch) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { code: 'INVALID_REQUEST', message: 'Use /api/process/learning-analysis/:studentId/:courseId.' } }));
+            return;
+        }
+
+        const studentId = decodeURIComponent(learningAnalysisMatch[1]);
+        const courseId = decodeURIComponent(learningAnalysisMatch[2]);
+        try {
+            const [course, progress, submissions] = await Promise.all([
+                requestJson(UPSTREAMS.course, `/courses/${encodeURIComponent(courseId)}`),
+                requestJson(UPSTREAMS.progress, `/progress/${encodeURIComponent(studentId)}/${encodeURIComponent(courseId)}`),
+                requestJson(UPSTREAMS.assessment, `/submissions?studentId=${encodeURIComponent(studentId)}&courseId=${encodeURIComponent(courseId)}&limit=3`)
+            ]);
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                processName: 'Learning Analysis Process API (Mục 1.2 Case Study 1)',
+                studentId,
+                courseId,
+                contextEnvelope: {
+                    courseTitle: course.title,
+                    completionRate: progress.completionRate,
+                    gpa: progress.averageScore,
+                    totalSubmissions: submissions.total,
+                    recentSubmissions: submissions.items
+                },
+                status: 'READY_FOR_AI_SYNTHESIS',
+                timestamp: new Date().toISOString()
+            }));
+        } catch (error) {
+            console.error(`[API Gateway] Learning Analysis failed (${correlationId}):`, error.message);
+            const statusCode = error.statusCode === 404 ? 404 : 502;
+            res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    code: statusCode === 404 ? 'LEARNING_CONTEXT_NOT_FOUND' : 'PROCESS_API_UPSTREAM_ERROR',
+                    message: error.message
+                }
+            }));
+        }
+        return;
+    }
+
+    // 4. Rate Limiting cho AI Chat (Mục 1.2.3 Case Study 1: 50 lượt/ngày)
+    if (pathname === '/api/ai/chat' && req.method === 'POST') {
+        const studentId = typeof parsedBody.studentId === 'string' ? parsedBody.studentId.trim() : '';
+        if (!studentId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { code: 'STUDENT_ID_REQUIRED', message: 'studentId is required for AI chat rate limiting.' } }));
+            return;
+        }
+
+        const rateCheck = checkAiRateLimit(studentId);
+
+        if (!rateCheck.allowed) {
+            res.writeHead(429, {
+                'Content-Type': 'application/json',
+                'X-RateLimit-Limit': rateCheck.limit,
+                'X-RateLimit-Remaining': rateCheck.remaining
+            });
+            res.end(JSON.stringify({
+                error: {
+                    code: 'AI_RATE_LIMIT_EXCEEDED',
+                    message: `Bạn đã đạt giới hạn ${AI_RATE_LIMIT_MAX} câu hỏi AI trong ngày hôm nay theo chính sách phân phối tài nguyên (Case Study 1 - Mục 1.2.3).`
+                }
+            }));
+            return;
+        }
+
+        return forwardRequest(UPSTREAMS.ai, '/ai/chat', req, res, bodyBuffer, {
+            'X-RateLimit-Limit': String(rateCheck.limit),
+            'X-RateLimit-Remaining': String(rateCheck.remaining)
+        });
+    }
+
+    // 5. Định tuyến các service còn lại
     if (pathname === '/api/courses/health') {
         return forwardRequest(UPSTREAMS.course, '/health', req, res, bodyBuffer);
     }
@@ -127,7 +269,7 @@ const server = http.createServer(async (req, res) => {
         return forwardRequest(UPSTREAMS.notify, subPath, req, res, bodyBuffer);
     }
 
-    // Static files phục vụ Web Client
+    // Static Web Client
     const publicDir = path.join(__dirname, '../../web-client/public');
     let filePath = path.join(publicDir, pathname === '/' ? 'index.html' : pathname);
 
@@ -137,7 +279,6 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { 'Content-Type': contentType });
         fs.createReadStream(filePath).pipe(res);
     } else {
-        // Fallback về index.html cho SPA
         const indexPath = path.join(publicDir, 'index.html');
         if (fs.existsSync(indexPath)) {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
@@ -147,10 +288,12 @@ const server = http.createServer(async (req, res) => {
             res.end('Not Found');
         }
     }
-});
+}
 
-server.listen(PORT, () => {
-    console.log(`[API Gateway] Đang lắng nghe trên cổng http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+    http.createServer(handler).listen(PORT, () => {
+        console.log(`[API Gateway] Đang lắng nghe trên cổng http://localhost:${PORT}`);
+    });
+}
 
-module.exports = { server };
+module.exports = handler;

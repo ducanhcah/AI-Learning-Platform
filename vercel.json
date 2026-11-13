@@ -1,0 +1,95 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "ai-assistant-system": {
+      "root": "services/ai-assistant-system",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    },
+    "api-gateway": {
+      "root": "services/api-gateway",
+      "runtime": "node",
+      "entrypoint": "server.js",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "assessment-process",
+          "format": "url",
+          "env": "ASSESSMENT_PROCESS_URL"
+        },
+        {
+          "type": "service",
+          "service": "course-system",
+          "format": "url",
+          "env": "COURSE_SYSTEM_URL"
+        },
+        {
+          "type": "service",
+          "service": "progress-system",
+          "format": "url",
+          "env": "PROGRESS_SYSTEM_URL"
+        },
+        {
+          "type": "service",
+          "service": "ai-assistant-system",
+          "format": "url",
+          "env": "AI_ASSISTANT_SYSTEM_URL"
+        },
+        {
+          "type": "service",
+          "service": "notification-system",
+          "format": "url",
+          "env": "NOTIFICATION_SYSTEM_URL"
+        }
+      ]
+    },
+    "assessment-process": {
+      "root": "services/assessment-process",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    },
+    "course-system": {
+      "root": "services/course-system",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    },
+    "notification-system": {
+      "root": "services/notification-system",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    },
+    "progress-system": {
+      "root": "services/progress-system",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    },
+    "web-client": {
+      "root": "web-client",
+      "runtime": "node",
+      "entrypoint": "server.js"
+    }
+  },
+  "daemons": {
+    "event-consumers": {
+      "root": ".",
+      "entrypoint": "Dockerfile.vercel-worker",
+      "instances": {
+        "sin1": 1
+      }
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "api-gateway"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web-client"
+      }
+    }
+  ]
+}

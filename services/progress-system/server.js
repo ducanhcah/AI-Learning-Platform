@@ -55,12 +55,25 @@ async function startConsumer() {
         dbManager.memoryStore.student_progress[key] = current;
         console.log(`[Progress Consumer] Sinh viên ${studentId} hoàn thành ${current.completionRate}%`);
 
+        // Phát sự kiện learning.progress.updated (Case Study 1 Mục 1.2.2)
+        eventBus.publishEvent('lms.events', eventBus.EVENT_CATALOG.PROGRESS_UPDATED, {
+            eventId: `evt-prog-${Date.now()}`,
+            eventType: eventBus.EVENT_CATALOG.PROGRESS_UPDATED,
+            studentId,
+            courseId,
+            completionRate: current.completionRate,
+            averageScore: current.averageScore,
+            occurredAt: new Date().toISOString()
+        });
+
         eventBus.localEmitter.emit('component.progress.done', { submissionId });
         return true;
     });
 }
 
-startConsumer().catch(err => console.error('[Progress Consumer Error]', err));
+if (!process.env.VERCEL) {
+    startConsumer().catch(err => console.error('[Progress Consumer Error]', err));
+}
 const server = app.listen();
 
-module.exports = { app, server };
+module.exports = Object.assign(app.handle.bind(app), { app, server, startConsumer });

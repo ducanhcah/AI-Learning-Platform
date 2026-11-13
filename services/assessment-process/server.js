@@ -25,6 +25,36 @@ app.get('/quizzes/:quizId', (req, res) => {
 });
 
 // Tra cứu trạng thái bài nộp (Aggregator)
+app.get('/submissions', (req, res) => {
+    const { studentId, courseId } = req.query;
+    const limit = Number(req.query.limit || 3);
+
+    if (!studentId || !Number.isInteger(limit) || limit < 1 || limit > 10) {
+        return res.status(400).json({
+            error: {
+                code: 'INVALID_QUERY',
+                message: 'studentId là bắt buộc và limit phải là số nguyên từ 1 đến 10.'
+            }
+        });
+    }
+
+    const submissions = dbManager.memoryStore.submissions
+        .filter(sub => sub.student_id === studentId && (!courseId || sub.course_id === courseId))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.status(200).json({
+        total: submissions.length,
+        items: submissions.slice(0, limit).map(sub => ({
+            submissionId: sub.submission_id,
+            quizId: sub.quiz_id,
+            courseId: sub.course_id,
+            score: sub.score,
+            status: sub.status,
+            createdAt: sub.created_at
+        }))
+    });
+});
+
 app.get('/submissions/:submissionId', (req, res) => {
     const { submissionId } = req.params;
     const sub = dbManager.memoryStore.submissions.find(s => s.submission_id === submissionId);
@@ -240,12 +270,16 @@ function updateConsumerStatus(submissionId, component, status) {
     }
 }
 
-eventBus.localEmitter.on('component.progress.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'progress', 'COMPLETED'));
-eventBus.localEmitter.on('component.ai.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'ai', 'COMPLETED'));
-eventBus.localEmitter.on('component.notify.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'notify', 'COMPLETED'));
+async function startBackgroundWorker() {
+    eventBus.localEmitter.on('component.progress.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'progress', 'COMPLETED'));
+    eventBus.localEmitter.on('component.ai.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'ai', 'COMPLETED'));
+    eventBus.localEmitter.on('component.notify.done', ({ submissionId }) => updateConsumerStatus(submissionId, 'notify', 'COMPLETED'));
 
-eventBus.init().catch(err => console.error('[EventBus Init Error]', err));
-setInterval(publishOutboxEvents, 2000);
+    await eventBus.init();
+    setInterval(publishOutboxEvents, 2000);
+}
+
+if (!process.env.VERCEL) startBackgroundWorker().catch(err => console.error('[EventBus Init Error]', err));
 const server = app.listen();
 
-module.exports = { app, server, updateConsumerStatus };
+module.exports = Object.assign(app.handle.bind(app), { app, server, startBackgroundWorker, updateConsumerStatus });

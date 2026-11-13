@@ -115,6 +115,25 @@ docker-compose ps
 docker-compose up -d
 ```
 
+### Phương án C: Triển khai nhiều service trên Vercel
+
+Repository có cấu hình Vercel Services trong `vercel.json`. Thiết lập Vercel project với **Root Directory** là thư mục gốc repository rồi triển khai bằng Vercel CLI:
+
+```bash
+npx vercel
+```
+
+Public routing dự kiến:
+- `/api/*` đi qua API Gateway.
+- Các đường dẫn còn lại được phục vụ bởi Web Client.
+- Course, Assessment, Progress, AI Assistant và Notification được giữ internal; API Gateway gọi chúng bằng service bindings.
+
+Vercel tự inject các URL binding vào API Gateway (`ASSESSMENT_PROCESS_URL`, `COURSE_SYSTEM_URL`, `PROGRESS_SYSTEM_URL`, `AI_ASSISTANT_SYSTEM_URL`, `NOTIFICATION_SYSTEM_URL`); không tự khai báo các biến này trong Project Settings.
+
+Cấu hình hiện có một Vercel Daemon `event-consumers` tại Singapore (`sin1`, 1 instance). Cần khai báo `RABBITMQ_URL` và các biến kết nối PostgreSQL trong Vercel Project Settings để daemon và services kết nối hạ tầng dùng chung.
+
+> **Giới hạn hiện tại:** Một số luồng nghiệp vụ vẫn lưu trạng thái trong bộ nhớ của tiến trình; dữ liệu đó không được chia sẻ giữa Vercel Functions và daemon, cũng không bền vững khi instance khởi động lại. Cần chuyển các store này sang PostgreSQL dùng chung trước khi sử dụng dữ liệu thực. Tương tự, giới hạn AI hiện lưu trong bộ nhớ của từng instance nên chưa bảo đảm hạn mức dùng chung trên nhiều instances.
+
 ---
 
 ## 5. HƯỚNG DẪN KIỂM THỬ VÀ BẰNG CHỨNG
